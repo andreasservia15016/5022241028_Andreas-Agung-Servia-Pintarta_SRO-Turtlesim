@@ -1,0 +1,4 @@
+int32 current_waypoint
+int32 total_waypoints
+float32 distance_to_target
+string state

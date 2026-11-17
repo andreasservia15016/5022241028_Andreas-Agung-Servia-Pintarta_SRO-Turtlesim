@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+import math
+import random
+import rospy
+from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
+from turtlesim.srv import Spawn, Kill, SetPen
+from turtle_mission.msg import Score
+
+
+def normalize_angle(angle):
+    """Menormalisasi sudut ke rentang [-pi, pi]."""
+    while angle > math.pi:
+        angle -= 2.0 * math.pi
+    while angle < -math.pi:
+        angle += 2.0 * math.pi
+    return angle
+
+
+class TurtleHunter:
+    def __init__(self):
+        rospy.init_node('hunter', anonymous=False)
+
+        # Parameter P-Controller & perburuan
+        self.kp_lin = rospy.get_param('~kp_lin', 2.0)
+        self.kp_ang = rospy.get_param('~kp_ang', 6.5)
+        self.catch_distance = rospy.get_param('~catch_distance', 0.5)
+        self.max_lin_vel = rospy.get_param('~max_lin_vel', 3.0)
+        self.max_ang_vel = rospy.get_param('~max_ang_vel', 4.5)
+        self.max_targets = rospy.get_param('~max_targets', 0)  # 0 = tanpa batas (unlimited)
+
+        # State hunter & target
+        self.hunter_pose = None
+        self.target_pose = None
+        self.target_sub = None
+        self.current_target_name = ""
+        self.target_counter = 0
+        self.score = 0
+        self.start_time = rospy.Time.now()
+
+        # Publisher kecepatan dan skor
+        self.cmd_pub = rospy.Publisher('/turtle1/cmd_vel', Twist, queue_size=10)
+        self.score_pub = rospy.Publisher('/hunter/score', Score, queue_size=10)
+
+        # Subscriber posisi hunter (turtle1)
+        rospy.Subscriber('/turtle1/pose', Pose, self.hunter_pose_callback)
+
+        # Tunggu hingga seluruh service turtlesim tersedia
+        rospy.loginfo("Menunggu service /spawn, /kill, dan /turtle1/set_pen...")
+        rospy.wait_for_service('/spawn')
+        rospy.wait_for_service('/kill')
+        rospy.wait_for_service('/turtle1/set_pen')
+
+        self.spawn_srv = rospy.ServiceProxy('/spawn', Spawn)
+        self.kill_srv = rospy.ServiceProxy('/kill', Kill)
+        self.pen_srv = rospy.ServiceProxy('/turtle1/set_pen', SetPen)
+
+        rospy.loginfo("Hunter siap berburu!")
+
+    def hunter_pose_callback(self, msg):
+        self.hunter_pose = msg
+
+    def target_pose_callback(self, msg):
+        self.target_pose = msg
+
+    def change_pen_color(self):
+        """Bonus: Mengubah warna pena turtle1 secara acak setiap pergantian target."""
+        try:
+            r = random.randint(50, 255)
+            g = random.randint(50, 255)
+            b = random.randint(50, 255)
+            self.pen_srv(r, g, b, 3, 0)
+        except rospy.ServiceException as e:
+            rospy.logwarn("Gagal mengubah warna pena: %s", e)
+
+    def spawn_new_target(self):
+        """Memunculkan turtle target baru di posisi acak yang aman dari tepi."""
+        self.target_counter += 1
+        target_name = f"target{self.target_counter}"
+
+        # Koordinat acak antara 1.5 s/d 9.5 agar tidak terlalu mepet dinding arena (0 - 11.08)
+        rx = random.uniform(1.5, 9.5)
+        ry = random.uniform(1.5, 9.5)
+        rtheta = random.uniform(-math.pi, math.pi)
+
+        try:
+            self.spawn_srv(rx, ry, rtheta, target_name)
+            self.current_target_name = target_name
+            self.target_pose = None
+
+            # Putuskan subscriber target lama jika ada, lalu subscribe ke target baru
+            if self.target_sub is not None:
+                self.target_sub.unregister()
+            self.target_sub = rospy.Subscriber(f"/{target_name}/pose", Pose, self.target_pose_callback)
+
+            # Ubah warna pena sebagai penanda fase target baru (Bonus)
+            self.change_pen_color()
+
+            rospy.loginfo("Target baru muncul: %s di posisi (%.2f, %.2f)", target_name, rx, ry)
+            return True
+        except rospy.ServiceException as e:
+            rospy.logerr("Gagal spawn target %s: %s", target_name, e)
+            return False
+
+    def kill_current_target(self):
+        """Menghapus target yang tertangkap dan mempublikasikan skor terbaru."""
+        try:
+            self.kill_srv(self.current_target_name)
+            self.score += 1
+            elapsed = (rospy.Time.now() - self.start_time).to_sec()
+
+            score_msg = Score()
+            score_msg.score = self.score
+            score_msg.last_target = self.current_target_name
+            score_msg.elapsed_time = elapsed
+            self.score_pub.publish(score_msg)
+
+            rospy.loginfo("TARGET TERTANGKAP (%s)! Skor: %d | Waktu: %.2f detik",
+                          self.current_target_name, self.score, elapsed)
+
+            self.current_target_name = ""
+            self.target_pose = None
+        except rospy.ServiceException as e:
+            rospy.logerr("Gagal melakukan /kill pada %s: %s", self.current_target_name, e)
+
+    def stop_hunter(self):
+        cmd = Twist()
+        self.cmd_pub.publish(cmd)
+
+    def run(self):
+        rate = rospy.Rate(20)  # 20 Hz
+
+        # Tunggu pose awal turtle1 masuk
+        while not rospy.is_shutdown() and self.hunter_pose is None:
+            rate.sleep()
+
+        # Spawn target pertama
+        self.spawn_new_target()
+
+        while not rospy.is_shutdown():
+            # Cek batas maksimum target jika dikonfigurasi > 0
+            if self.max_targets > 0 and self.score >= self.max_targets:
+                self.stop_hunter()
+                rospy.loginfo("Misi Hunter selesai! Total skor: %d", self.score)
+                break
+
+            # Pastikan ada target aktif
+            if not self.current_target_name:
+                self.spawn_new_target()
+                rate.sleep()
+                continue
+
+            # Tunggu hingga pose target diterima dari topic /<target_name>/pose
+            if self.hunter_pose is None or self.target_pose is None:
+                rate.sleep()
+                continue
+
+            # Hitung jarak Euclidean antara hunter dan target
+            dx = self.target_pose.x - self.hunter_pose.x
+            dy = self.target_pose.y - self.hunter_pose.y
+            distance = math.sqrt(dx**2 + dy**2)
+
+            if distance < self.catch_distance:
+                # Target tertangkap!
+                self.stop_hunter()
+                self.kill_current_target()
+                rospy.sleep(0.2)  # Jeda singkat sebelum spawn target berikutnya
+                if self.max_targets == 0 or self.score < self.max_targets:
+                    self.spawn_new_target()
+            else:
+                # Kejar target menggunakan P-Controller
+                target_angle = math.atan2(dy, dx)
+                angle_error = normalize_angle(target_angle - self.hunter_pose.theta)
+
+                cmd = Twist()
+                if abs(angle_error) > 0.4:
+                    cmd.linear.x = 0.2
+                else:
+                    cmd.linear.x = self.kp_lin * distance
+
+                cmd.angular.z = self.kp_ang * angle_error
+
+                # Pembatasan kecepatan maksimum
+                cmd.linear.x = max(-self.max_lin_vel, min(self.max_lin_vel, cmd.linear.x))
+                cmd.angular.z = max(-self.max_ang_vel, min(self.max_ang_vel, cmd.angular.z))
+
+                self.cmd_pub.publish(cmd)
+
+            rate.sleep()
+
+
+if __name__ == '__main__':
+    try:
+        hunter = TurtleHunter()
+        hunter.run()
+    except rospy.ROSInterruptException:
+        pass
