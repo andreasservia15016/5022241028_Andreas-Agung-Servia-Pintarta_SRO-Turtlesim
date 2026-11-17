@@ -1,0 +1,16 @@
+<launch>
+  <!-- 1. Jalankan simulator turtlesim -->
+  <node pkg="turtlesim" type="turtlesim_node" name="turtlesim_node" output="screen" />
+
+  <!-- 2. Jalankan node Sensor Dinding Virtual -->
+  <node pkg="turtle_mission" type="wall_sensor.py" name="wall_sensor" output="screen">
+    <param name="safe_distance" value="1.0" />
+  </node>
+
+  <!-- 3. Jalankan node Safe Explorer -->
+  <node pkg="turtle_mission" type="safe_explorer.py" name="safe_explorer" output="screen">
+    <param name="cruise_speed" value="2.0" />
+    <param name="avoid_speed" value="0.6" />
+    <param name="kp_ang" value="4.5" />
+  </node>
+</launch>
