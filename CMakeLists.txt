@@ -15,6 +15,7 @@ add_message_files(
   MissionStatus.msg
   WallSensor.msg
   Score.msg
+  CustomWallSensor.msg
 )
 
 add_service_files(
@@ -50,5 +51,8 @@ catkin_install_python(PROGRAMS
   scripts/wall_sensor.py
   scripts/safe_explorer.py
   scripts/hunter.py
+  scripts/custom_wall_sensor.py
+  scripts/custom_safe_explorer.py
+  scripts/hunter_gui.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

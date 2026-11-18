@@ -1,0 +1,16 @@
+<launch>
+  <!-- 1. Jalankan simulator turtlesim -->
+  <node pkg="turtlesim" type="turtlesim_node" name="turtlesim_node" output="screen" />
+
+  <!-- 2. Jalankan sensor dinding custom dan muat konfigurasi titik dari YAML -->
+  <node pkg="turtle_mission" type="custom_wall_sensor.py" name="custom_wall_sensor" output="screen">
+    <rosparam command="load" file="$(find turtle_mission)/config/custom_walls.yaml" />
+  </node>
+
+  <!-- 3. Jalankan pengontrol penjelajah aman otonom -->
+  <node pkg="turtle_mission" type="custom_safe_explorer.py" name="custom_safe_explorer" output="screen">
+    <param name="cruise_speed" value="2.0" />
+    <param name="avoid_speed" value="0.8" />
+    <param name="kp_ang" value="5.0" />
+  </node>
+</launch>

@@ -1,0 +1,19 @@
+<launch>
+  <!-- Argumen mode: patrol (Level 1), explore (Level 2), hunter (Level 3) -->
+  <arg name="mode" default="patrol" doc="Mode operasi: patrol, explore, hunter" />
+  <arg name="auto_start" default="true" />
+
+  <!-- Level 1: Waypoint Patrol -->
+  <include if="$(eval arg('mode') == 'patrol')" file="$(find turtle_mission)/launch/level1.launch">
+    <arg name="auto_start" value="$(arg auto_start)" />
+  </include>
+
+  <!-- Level 2: Safe Explorer -->
+  <include if="$(eval arg('mode') == 'explore')" file="$(find turtle_mission)/launch/level2.launch" />
+
+  <!-- Level 3: Hunter -->
+  <include if="$(eval arg('mode') == 'hunter')" file="$(find turtle_mission)/launch/level3.launch" />
+
+  <!-- Custom Wall: Misi Dinding Kustom -->
+  <include if="$(eval arg('mode') == 'custom_wall' or arg('mode') == 'custom')" file="$(find turtle_mission)/launch/custom_wall.launch" />
+</launch>

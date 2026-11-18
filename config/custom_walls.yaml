@@ -1,0 +1,28 @@
+# ==============================================================================
+# KONFIGURASI DINDING CUSTOM (CUSTOM WALLS)
+# ==============================================================================
+# Masukkan titik-titik koordinat pembentuk dinding (format [x, y]).
+# Titik-titik ini akan dihubungkan secara berurutan: P1 -> P2 -> P3 -> ... -> Pn
+# Catatan arena Turtlesim: sumbu X (0.0 - 11.08), sumbu Y (0.0 - 11.08)
+# Turtle1 pertama kali muncul di titik tengah (5.54, 5.54).
+# Pastikan posisi awal turtle1 tidak berada di dalam atau tepat di atas dinding.
+# ==============================================================================
+
+wall_points:
+  - [2.5, 2.5]
+  - [4.5, 2.5]
+  - [4.5, 4.5]
+  - [2.5, 4.5]
+
+# Apakah titik terakhir dihubungkan kembali ke titik pertama membentuk loop tertutup?
+# True: loop tertutup (misal kotak, poligon, segitiga)
+# False: garis terbuka / poliline (misal sekat pembatas ruangan, huruf L, dll.)
+closed_loop: true
+
+# Jarak batas aman deteksi dinding (turtle akan mulai menghindar jika jarak < safe_distance)
+safe_distance: 1.0
+
+# Opsi visualisasi gambar dinding di simulator turtlesim
+draw_wall: true
+wall_color: [255, 50, 50]  # Format RGB [R, G, B] (Merah menyala)
+wall_width: 5              # Ketebalan garis dinding

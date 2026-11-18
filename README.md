@@ -7,6 +7,7 @@ Proyek ini mengimplementasikan sistem navigasi otonom pada simulator `turtlesim`
 - [x] **Level 2 – Safe Explorer:** Eksplorasi arena secara acak menggunakan sensor jarak dinding virtual (`WallSensor.msg`) untuk menghindari tabrakan dengan dinding.
 - [x] **Level 3 – Hunter:** Pemunculan target acak via `/spawn`, pengejaran otonom dengan P-Controller, eliminasi via `/kill` saat jarak `< 0.5`, serta publikasi skor ke `/hunter/score`.
 - [x] **Bonus:** Perubahan warna pena `/turtle1/set_pen` secara otomatis pada setiap target baru di Level 3.
+- [x] **Misi Tambahan – Custom Wall Avoidance:** Pembentukan dinding kustom dari titik-titik koordinat urutan (`custom_walls.yaml`), visualisasi gambar dinding di kanvas Turtlesim, perhitungan jarak ke segmen garis poligon, dan penghindaran otomatis (`CustomWallSensor.msg`).
 
 ## Cara Build & Menjalankan
 
@@ -29,10 +30,22 @@ Proyek ini mengimplementasikan sistem navigasi otonom pada simulator `turtlesim`
    roslaunch turtle_mission level2.launch
    ```
 
-4. **Menjalankan Level 3 (Hunter + Bonus):**
+4. **Menjalankan Level 3 (Hunter + User Interface Control Panel):**
    ```bash
    roslaunch turtle_mission level3.launch
    ```
+   *(Secara default akan membuka jendela simulator Turtlesim dan jendela **Hunter Control Panel** GUI berdampingan. Anda bisa mengetik koordinat X/Y atau langsung mengklik pada peta arena untuk meletakkan target).*
+   
+   Jika ingin menjalankan Hunter murni otomatis tanpa GUI:
+   ```bash
+   roslaunch turtle_mission level3.launch use_gui:=false auto_spawn:=true
+   ```
+
+5. **Menjalankan Misi Dinding Custom (Custom Wall Avoidance):**
+   ```bash
+   roslaunch turtle_mission custom_wall.launch
+   ```
+   *(Atau gunakan peluncur terpadu: `roslaunch turtle_mission mission.launch mode:=custom_wall`)*
 
 ## Arsitektur Node, Topic, dan Service
 
@@ -43,9 +56,13 @@ Proyek ini mengimplementasikan sistem navigasi otonom pada simulator `turtlesim`
 | **Node** | `wall_sensor` | Python Node | Menghitung jarak `turtle1` ke 4 dinding arena (`0` – `11.08`) |
 | **Node** | `safe_explorer` | Python Node | Menggerakkan `turtle1` menjelajah acak & berbelok menjauhi dinding |
 | **Node** | `hunter` | Python Node | Melakukan `/spawn`, pengejaran P-Controller, `/kill`, dan `/set_pen` |
+| **Node** | `hunter_gui` | Python Node (Tkinter) | User Interface interaktif: input koordinat spawn & mini-map klik |
+| **Node** | `custom_wall_sensor` | Python Node | Menghitung jarak ke segmen garis dinding kustom & visualisasi kanvas |
+| **Node** | `custom_safe_explorer` | Python Node | Navigasi closed-loop menghindari dinding kustom via escape angle |
 | **Topic** | `/mission/goal` | `geometry_msgs/Point` | Koordinat target waypoint aktif |
 | **Topic** | `/mission/status` | `turtle_mission/MissionStatus` | Status progres misi (`IDLE`, `RUNNING`, `REACHED`, `FINISHED`) |
 | **Topic** | `/wall_sensor` | `turtle_mission/WallSensor` | Jarak ke 4 dinding & flag bahaya `near_wall` |
+| **Topic** | `/custom_wall_sensor` | `turtle_mission/CustomWallSensor` | Jarak ke segmen dinding custom, escape angle, dan tipe rintangan |
 | **Topic** | `/hunter/score` | `turtle_mission/Score` | Skor perburuan, nama target terakhir, & waktu tempuh |
 | **Service** | `/start_mission` | `turtle_mission/StartMission` | Memulai eksekusi patroli waypoint pada Level 1 |
 
@@ -60,6 +77,20 @@ waypoints:
 return_to_start: true
 ```
 
-## Dokumentasi Demo
-- **Screenshot `rqt_graph`:** `[Lampirkan gambar rqt_graph di sini]`
-- **Link Video Demo (1–2 menit):** `[Tempelkan tautan Google Drive / YouTube di sini]`
+## Cara Menyesuaikan Titik Dinding Kustom (Custom Walls)
+Edit file `config/custom_walls.yaml` untuk menentukan bentuk dinding (kotak, segitiga, sekat, huruf L, dll.):
+```yaml
+wall_points:
+  - [2.5, 2.5]
+  - [4.5, 2.5]
+  - [4.5, 4.5]
+  - [2.5, 4.5]
+closed_loop: true   # Set false jika ingin sekat garis terbuka
+safe_distance: 1.0  # Jarak aman deteksi dinding
+draw_wall: true     # Visualisasi garis merah di layar Turtlesim
+```
+
+## Dokumentasi Video Demo
+- **Video Demo 1:** `VideoDemo.mp4` (Demo Waypoint Patrol)
+- **Video Demo 2:** `videodemo2.mkv` (Demo Safe Explorer / Custom Wall Avoidance)
+- **Video Demo 3:** `videodemo3.mkv` (Demo Hunter dengan User Interface Control Panel)

@@ -1,4 +1,8 @@
 <launch>
+  <!-- Argumen untuk menyalakan User Interface (GUI) -->
+  <arg name="use_gui" default="true" doc="Aktifkan User Interface Hunter Control Panel" />
+  <arg name="auto_spawn" default="false" doc="True: auto spawn random, False: tunggu input koordinat dari UI" />
+
   <!-- 1. Jalankan simulator turtlesim -->
   <node pkg="turtlesim" type="turtlesim_node" name="turtlesim_node" output="screen" />
 
@@ -11,5 +15,9 @@
     <param name="max_ang_vel" value="4.5" />
     <!-- Set max_targets ke 0 untuk mode tanpa batas, atau angka tertentu (misal 5) -->
     <param name="max_targets" value="0" />
+    <param name="auto_spawn" value="$(arg auto_spawn)" />
   </node>
+
+  <!-- 3. Jalankan User Interface (GUI) untuk input koordinat spawn -->
+  <node if="$(arg use_gui)" pkg="turtle_mission" type="hunter_gui.py" name="hunter_gui" output="screen" />
 </launch>
